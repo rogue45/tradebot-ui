@@ -15,5 +15,5 @@ RUN npm install --omit=dev
 COPY server ./server
 COPY --from=build /app/dist ./dist
 
-EXPOSE 3001
+EXPOSE 8473
 CMD ["node", "server/index.js"]

@@ -10,7 +10,7 @@ import { getTickers, getPriceSeries, getFills, getSummary } from './influx.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8473;
 
 const asyncRoute = (handler) => (req, res) => {
    handler(req, res).catch(err => {

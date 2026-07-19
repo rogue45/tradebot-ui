@@ -22,7 +22,7 @@ realized P&L), `trade_decision` (Gemini's reason, shown on marker hover, joined 
 ```bash
 npm install
 cp .env.example .env      # fill in INFLUX_DB_TOKEN
-npm run dev               # Vite on :5173, API on :3001
+npm run dev               # Vite on :5173, API on :8473
 ```
 
 Open http://localhost:5173.
@@ -44,7 +44,7 @@ tradebot-ui:
     - INFLUX_ORG=deremworks
     - INFLUX_BUCKET=market_data
   ports:
-    - "3001:3001"
+    - "8473:8473"
   restart: unless-stopped
 ```
 
