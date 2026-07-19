@@ -10,7 +10,10 @@ import { InfluxDB } from '@influxdata/influxdb-client';
 const URL = process.env.INFLUX_URL || 'http://192.168.1.53:8086';
 const TOKEN = process.env.INFLUX_DB_TOKEN;
 const ORG = process.env.INFLUX_ORG || 'deremworks';
-const BUCKET = process.env.INFLUX_BUCKET || 'market_data';
+// Price ticks live in the ephemeral market-data bucket; trade records live in their own
+// permanent bucket (separate retention). Fall back to INFLUX_BUCKET for older single-bucket setups.
+const PRICE_BUCKET = process.env.INFLUX_PRICE_BUCKET || process.env.INFLUX_BUCKET || 'market_data';
+const TRADE_BUCKET = process.env.INFLUX_TRADE_BUCKET || 'trade_history';
 const PRICE_MEASUREMENT = process.env.INFLUX_PRICE_MEASUREMENT || 'spot_price';
 const FILL_MEASUREMENT = process.env.INFLUX_FILL_MEASUREMENT || 'trade_fill';
 const DECISION_MEASUREMENT = process.env.INFLUX_DECISION_MEASUREMENT || 'trade_decision';
@@ -40,7 +43,7 @@ function fluxRange(startIso, stopIso) {
 export async function getTickers() {
    const flux = `import "influxdata/influxdb/schema"
 schema.tagValues(
-  bucket: "${BUCKET}",
+  bucket: "${TRADE_BUCKET}",
   tag: "ticker",
   predicate: (r) => r._measurement == "${FILL_MEASUREMENT}",
   start: -5y
@@ -53,7 +56,7 @@ schema.tagValues(
 export async function getPriceSeries(ticker, startIso, stopIso) {
    const rangeSeconds = Math.max(60, (new Date(stopIso) - new Date(startIso)) / 1000);
    const windowSeconds = Math.max(60, Math.ceil(rangeSeconds / 400));
-   const flux = `from(bucket: "${BUCKET}")
+   const flux = `from(bucket: "${PRICE_BUCKET}")
   |> ${fluxRange(startIso, stopIso)}
   |> filter(fn: (r) => r._measurement == "${PRICE_MEASUREMENT}")
   |> filter(fn: (r) => r._field == "price")
@@ -66,7 +69,7 @@ export async function getPriceSeries(ticker, startIso, stopIso) {
 
 /** Executed fills for a ticker over a range, joined to decision reasons by order_id. */
 export async function getFills(ticker, startIso, stopIso) {
-   const flux = `from(bucket: "${BUCKET}")
+   const flux = `from(bucket: "${TRADE_BUCKET}")
   |> ${fluxRange(startIso, stopIso)}
   |> filter(fn: (r) => r._measurement == "${FILL_MEASUREMENT}")
   |> filter(fn: (r) => r.ticker == "${ticker}")
@@ -84,7 +87,7 @@ export async function getFills(ticker, startIso, stopIso) {
 
 /** All fills for a ticker (all-time), for position/return math. */
 export async function getAllFills(ticker) {
-   const flux = `from(bucket: "${BUCKET}")
+   const flux = `from(bucket: "${TRADE_BUCKET}")
   |> range(start: -5y)
   |> filter(fn: (r) => r._measurement == "${FILL_MEASUREMENT}")
   |> filter(fn: (r) => r.ticker == "${ticker}")
@@ -109,7 +112,7 @@ function normalizeFillRow(r) {
 
 /** Map of order_id -> decision reason for a ticker over a range. */
 async function getDecisionReasons(ticker, startIso, stopIso) {
-   const flux = `from(bucket: "${BUCKET}")
+   const flux = `from(bucket: "${TRADE_BUCKET}")
   |> ${fluxRange(startIso, stopIso)}
   |> filter(fn: (r) => r._measurement == "${DECISION_MEASUREMENT}")
   |> filter(fn: (r) => r.ticker == "${ticker}")
@@ -124,7 +127,7 @@ async function getDecisionReasons(ticker, startIso, stopIso) {
 
 /** Latest spot price for a ticker (looks back 1h). */
 export async function getLatestPrice(ticker) {
-   const flux = `from(bucket: "${BUCKET}")
+   const flux = `from(bucket: "${PRICE_BUCKET}")
   |> range(start: -1h)
   |> filter(fn: (r) => r._measurement == "${PRICE_MEASUREMENT}")
   |> filter(fn: (r) => r.ticker == "${ticker}")

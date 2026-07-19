@@ -14,8 +14,9 @@ Express backend + a Vite/React frontend, shipped as a single container:
   `/api/tickers`, `/api/timeline`, `/api/summary`. In production it also serves the built frontend.
 - **`src/`** — React SPA (Recharts). In dev, Vite serves it and proxies `/api` to the backend.
 
-Data sources (all from InfluxDB): `spot_price` (price line), `trade_fill` (markers, fees,
-realized P&L), `trade_decision` (Gemini's reason, shown on marker hover, joined by `order_id`).
+Data sources (all from InfluxDB): `spot_price` from the `market_data` bucket (price line),
+`trade_fill` (markers, fees, realized P&L) and `trade_decision` (Gemini's reason, shown on
+marker hover, joined by `order_id`) from the permanent `trade_history` bucket.
 
 ## Local development
 
@@ -42,7 +43,8 @@ tradebot-ui:
     - INFLUX_URL=http://192.168.1.53:8086
     - INFLUX_DB_TOKEN=${INFLUX_DB_TOKEN}
     - INFLUX_ORG=deremworks
-    - INFLUX_BUCKET=market_data
+    - INFLUX_PRICE_BUCKET=market_data
+    - INFLUX_TRADE_BUCKET=trade_history
   ports:
     - "8473:8473"
   restart: unless-stopped
