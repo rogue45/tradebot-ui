@@ -37,6 +37,7 @@ export interface Summary {
     unrealizedPnl: number;
   };
   allTime: { moneyIn: number; realizedPnl: number; totalReturnPct: number };
+  untracked: { disposals: number; quantity: number };
 }
 
 async function getJson<T>(url: string): Promise<T> {

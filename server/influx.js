@@ -17,13 +17,26 @@ const TRADE_BUCKET = process.env.INFLUX_TRADE_BUCKET || 'trade_history';
 const PRICE_MEASUREMENT = process.env.INFLUX_PRICE_MEASUREMENT || 'spot_price';
 const FILL_MEASUREMENT = process.env.INFLUX_FILL_MEASUREMENT || 'trade_fill';
 const DECISION_MEASUREMENT = process.env.INFLUX_DECISION_MEASUREMENT || 'trade_decision';
+// Optional ISO date (e.g. "2026-07-19"). Trades before this are ignored everywhere - a clean
+// "tracking starts here" line so pre-bot holdings with unreliable cost basis don't pollute P&L.
+const TRACKING_START = process.env.INFLUX_TRACKING_START || null;
+const ALL_TIME_START = TRACKING_START || '-5y';
 
 if (!TOKEN) {
    console.error('FATAL: INFLUX_DB_TOKEN is not set.');
    process.exit(1);
 }
+if (TRACKING_START) {
+   console.log(`Tracking start set to ${TRACKING_START} - trades before this are excluded from all metrics.`);
+}
 
 const queryApi = new InfluxDB({ url: URL, token: TOKEN }).getQueryApi(ORG);
+
+/** Returns the later of the requested start and the tracking-start cutoff (if configured). */
+function effectiveStart(requestedIso) {
+   if (!TRACKING_START) return requestedIso;
+   return new Date(requestedIso) > new Date(TRACKING_START) ? requestedIso : TRACKING_START;
+}
 
 /** Runs a Flux query and returns an array of row objects. */
 async function query(flux) {
@@ -46,7 +59,7 @@ schema.tagValues(
   bucket: "${TRADE_BUCKET}",
   tag: "ticker",
   predicate: (r) => r._measurement == "${FILL_MEASUREMENT}",
-  start: -5y
+  start: ${ALL_TIME_START}
 )`;
    const rows = await query(flux);
    return rows.map(r => r._value).filter(Boolean).sort();
@@ -70,7 +83,7 @@ export async function getPriceSeries(ticker, startIso, stopIso) {
 /** Executed fills for a ticker over a range, joined to decision reasons by order_id. */
 export async function getFills(ticker, startIso, stopIso) {
    const flux = `from(bucket: "${TRADE_BUCKET}")
-  |> ${fluxRange(startIso, stopIso)}
+  |> ${fluxRange(effectiveStart(startIso), stopIso)}
   |> filter(fn: (r) => r._measurement == "${FILL_MEASUREMENT}")
   |> filter(fn: (r) => r.ticker == "${ticker}")
   |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")`;
@@ -88,7 +101,7 @@ export async function getFills(ticker, startIso, stopIso) {
 /** All fills for a ticker (all-time), for position/return math. */
 export async function getAllFills(ticker) {
    const flux = `from(bucket: "${TRADE_BUCKET}")
-  |> range(start: -5y)
+  |> range(start: ${ALL_TIME_START})
   |> filter(fn: (r) => r._measurement == "${FILL_MEASUREMENT}")
   |> filter(fn: (r) => r.ticker == "${ticker}")
   |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")`;
@@ -113,7 +126,7 @@ function normalizeFillRow(r) {
 /** Map of order_id -> decision reason for a ticker over a range. */
 async function getDecisionReasons(ticker, startIso, stopIso) {
    const flux = `from(bucket: "${TRADE_BUCKET}")
-  |> ${fluxRange(startIso, stopIso)}
+  |> ${fluxRange(effectiveStart(startIso), stopIso)}
   |> filter(fn: (r) => r._measurement == "${DECISION_MEASUREMENT}")
   |> filter(fn: (r) => r.ticker == "${ticker}")
   |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")`;
@@ -151,26 +164,48 @@ export async function getSummary(ticker, startIso, stopIso) {
 
    const moneyInRange = sum(rangeFills.filter(f => f.side === 'BUY').map(f => f.usdValue));
    const feesRange = sum(rangeFills.map(f => f.fees));
-   const realizedRange = sum(rangeFills.filter(f => f.side === 'SELL' && f.realizedPnl != null).map(f => f.realizedPnl));
+   const rangeStartMs = new Date(startIso).getTime();
+   const rangeStopMs = new Date(stopIso).getTime();
 
-   // FIFO walk over all fills for open quantity + open cost basis + all-time realized
+   // FIFO walk over all tracked fills. Realized P&L is computed here (not read from the stored
+   // field) so we can correctly handle sells that dispose of MORE than we have tracked lots for:
+   // that excess is an "untracked disposal" (a pre-tracking/transferred-in holding) and is
+   // excluded from P&L entirely rather than booked as phantom profit/loss.
    const lots = [];
    let realizedAll = 0;
+   let realizedRange = 0;
    let moneyInAll = 0;
+   let untrackedDisposals = 0;
+   let untrackedQty = 0;
    for (const f of allFills) {
       if (f.side === 'BUY') {
          lots.push({ qty: f.quantity, cost: f.usdValue + f.fees });
          moneyInAll += f.usdValue;
       } else if (f.side === 'SELL') {
-         if (f.realizedPnl != null) realizedAll += f.realizedPnl;
+         const sellFeePerUnit = f.quantity > 0 ? f.fees / f.quantity : 0;
+         const sellValuePerUnit = f.quantity > 0 ? f.usdValue / f.quantity : 0;
          let remaining = f.quantity;
+         let coveredQty = 0;
+         let consumedCost = 0;
          while (remaining > 1e-12 && lots.length > 0) {
             const lot = lots[0];
             const consumed = Math.min(lot.qty, remaining);
+            consumedCost += lot.cost * (consumed / lot.qty);
             lot.cost *= (lot.qty - consumed) / lot.qty;
             lot.qty -= consumed;
             remaining -= consumed;
+            coveredQty += consumed;
             if (lot.qty <= 1e-12) lots.shift();
+         }
+         // P&L only on the portion backed by tracked lots
+         const coveredProceeds = coveredQty * sellValuePerUnit;
+         const coveredFees = coveredQty * sellFeePerUnit;
+         const sellRealized = coveredProceeds - coveredFees - consumedCost;
+         realizedAll += sellRealized;
+         if (f.time >= rangeStartMs && f.time <= rangeStopMs) realizedRange += sellRealized;
+         if (remaining > 1e-9) { // sold more than we ever tracked buying -> untracked disposal
+            untrackedDisposals += 1;
+            untrackedQty += remaining;
          }
       }
    }
@@ -191,6 +226,7 @@ export async function getSummary(ticker, startIso, stopIso) {
          unrealizedPnl: unrealized,
       },
       allTime: { moneyIn: moneyInAll, realizedPnl: realizedAll, totalReturnPct },
+      untracked: { disposals: untrackedDisposals, quantity: untrackedQty },
    };
 }
 

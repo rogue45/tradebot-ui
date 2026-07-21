@@ -45,6 +45,9 @@ tradebot-ui:
     - INFLUX_ORG=deremworks
     - INFLUX_PRICE_BUCKET=market_data
     - INFLUX_TRADE_BUCKET=trade_history
+    # Optional: ignore trades before this date so pre-bot holdings with unreliable
+    # cost basis don't pollute P&L. Omit to include all history.
+    - INFLUX_TRACKING_START=2026-07-19
   ports:
     - "8473:8473"
   restart: unless-stopped
@@ -54,6 +57,11 @@ tradebot-ui:
 
 - **Money In / Fees / Realized P&L** — scoped to the selected date range.
 - **Current Holdings** — open position quantity (all-time, FIFO) × latest price, a "right now" value.
-- **Total Return %** — all-time: `(realized P&L + unrealized on open position) / all-time money in`.
+- **Total Return %** — all-time: `(realized P&L + unrealized on open position) / all-time money in`, computed over tracked capital only.
+
+Realized P&L is computed here via FIFO over the fill history rather than trusting the reconciler's
+stored value, so a sell that disposes of more than the tracked lots (a pre-tracking or transferred-in
+holding) is booked as an **untracked disposal** and excluded from P&L instead of showing phantom
+profit/loss. `INFLUX_TRACKING_START` sets a hard floor on which fills count at all.
 
 Note: this is a monitoring view, not a tax document — for taxes use Coinbase's own reports.
