@@ -6,7 +6,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getTickers, getPriceSeries, getFills, getSummary } from './influx.js';
+import { getTickers, getPriceSeries, getFills, getSummary, getOverview } from './influx.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -32,6 +32,11 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.get('/api/tickers', asyncRoute(async (req, res) => {
    res.json({ tickers: await getTickers() });
+}));
+
+app.get('/api/overview', asyncRoute(async (req, res) => {
+   const { startIso, stopIso } = resolveRange(req);
+   res.json(await getOverview(startIso, stopIso));
 }));
 
 app.get('/api/timeline', asyncRoute(async (req, res) => {

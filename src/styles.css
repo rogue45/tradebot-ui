@@ -83,6 +83,31 @@ select {
 .range-tabs button:hover { color: var(--text); }
 .range-tabs button.active { background: var(--accent); color: #0b1020; font-weight: 600; }
 
+.legend-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+
+.chip:hover { color: var(--text); }
+.chip.active { color: var(--text); border-color: var(--accent); background: rgba(110, 168, 254, 0.12); }
+.chip-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { fetchTickers, fetchTimeline, fetchSummary, type Timeline, type Summary } from './api';
+import { fetchOverview, type Overview } from './api';
 import TimelineChart from './components/TimelineChart';
-import SummaryCards from './components/SummaryCards';
+import GlobalChart from './components/GlobalChart';
+import { TickerSummaryCards, CombinedSummaryCards } from './components/SummaryCards';
 
 const RANGE_PRESETS = [
   { label: 'This Week', days: 7 },
@@ -10,6 +11,9 @@ const RANGE_PRESETS = [
   { label: 'This Year', days: 365 },
 ];
 
+// Distinct line colors assigned per ticker (stable by sorted order).
+const TICKER_COLORS = ['#6ea8fe', '#f5a524', '#c07cf0', '#35c47a', '#f0616d', '#4dd0e1'];
+
 function rangeFor(days: number) {
   const stop = new Date();
   const start = new Date(stop.getTime() - days * 24 * 60 * 60 * 1000);
@@ -17,83 +21,97 @@ function rangeFor(days: number) {
 }
 
 export default function App() {
-  const [tickers, setTickers] = useState<string[]>([]);
-  const [ticker, setTicker] = useState<string>('');
   const [rangeDays, setRangeDays] = useState(7);
-  const [timeline, setTimeline] = useState<Timeline | null>(null);
-  const [summary, setSummary] = useState<Summary | null>(null);
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [selected, setSelected] = useState<string | null>(null); // null = All
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchTickers()
-      .then(ts => {
-        setTickers(ts);
-        if (ts.length && !ticker) setTicker(ts[0]);
-      })
-      .catch(e => setError(e.message));
-  }, []);
-
-  useEffect(() => {
-    if (!ticker) return;
     const { start, stop } = rangeFor(rangeDays);
     setLoading(true);
     setError(null);
-    Promise.all([fetchTimeline(ticker, start, stop), fetchSummary(ticker, start, stop)])
-      .then(([tl, sm]) => {
-        setTimeline(tl);
-        setSummary(sm);
-      })
+    fetchOverview(start, stop)
+      .then(setOverview)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [ticker, rangeDays]);
+  }, [rangeDays]);
+
+  const colorFor = (ticker: string) => {
+    const idx = overview ? overview.tickers.findIndex(t => t.ticker === ticker) : 0;
+    return TICKER_COLORS[idx % TICKER_COLORS.length];
+  };
+
+  const selectedEntry = selected && overview ? overview.tickers.find(t => t.ticker === selected) : null;
 
   return (
     <div className="app">
       <header className="header">
         <h1>Tradebot</h1>
-        <div className="controls">
-          <select value={ticker} onChange={e => setTicker(e.target.value)} disabled={!tickers.length}>
-            {tickers.length === 0 && <option>No tickers</option>}
-            {tickers.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <div className="range-tabs">
-            {RANGE_PRESETS.map(p => (
-              <button
-                key={p.days}
-                className={p.days === rangeDays ? 'active' : ''}
-                onClick={() => setRangeDays(p.days)}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+        <div className="range-tabs">
+          {RANGE_PRESETS.map(p => (
+            <button key={p.days} className={p.days === rangeDays ? 'active' : ''} onClick={() => setRangeDays(p.days)}>
+              {p.label}
+            </button>
+          ))}
         </div>
       </header>
 
       {error && <div className="error">Error: {error}</div>}
 
-      {summary && <SummaryCards summary={summary} />}
+      {/* Legend / filter: All + one chip per ticker */}
+      {overview && (
+        <div className="legend-filter">
+          <button className={`chip ${selected === null ? 'active' : ''}`} onClick={() => setSelected(null)}>
+            <span className="chip-dot" style={{ background: 'var(--muted)' }} /> All
+          </button>
+          {overview.tickers.map(t => (
+            <button
+              key={t.ticker}
+              className={`chip ${selected === t.ticker ? 'active' : ''}`}
+              onClick={() => setSelected(selected === t.ticker ? null : t.ticker)}
+            >
+              <span className="chip-dot" style={{ background: colorFor(t.ticker) }} /> {t.ticker}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {overview && (selectedEntry
+        ? <TickerSummaryCards summary={selectedEntry.summary} />
+        : <CombinedSummaryCards combined={overview.combined} tickerCount={overview.tickers.length} />
+      )}
 
       <div className="chart-panel">
         {loading && <div className="loading">Loading…</div>}
-        {timeline && !loading && (
+        {overview && !loading && (selectedEntry ? (
           <>
             <div className="chart-heading">
-              <span>{timeline.ticker} price</span>
+              <span>{selectedEntry.ticker} price</span>
               <span className="legend">
                 <span className="dot buy" /> Buy
                 <span className="dot sell" /> Sell
-                <span className="muted">· {timeline.fills.length} trades</span>
+                <span className="muted">· {selectedEntry.fills.length} trades</span>
               </span>
             </div>
-            <TimelineChart prices={timeline.prices} fills={timeline.fills} />
+            <TimelineChart prices={selectedEntry.prices} fills={selectedEntry.fills} />
           </>
-        )}
+        ) : (
+          <>
+            <div className="chart-heading">
+              <span>All tickers · % change from range start</span>
+              <span className="legend">
+                <span className="dot buy" /> Buy
+                <span className="dot sell" /> Sell
+              </span>
+            </div>
+            <GlobalChart series={overview.tickers.map(t => ({ ticker: t.ticker, color: colorFor(t.ticker), prices: t.prices, fills: t.fills }))} />
+          </>
+        ))}
       </div>
 
       <footer className="footer">
-        Data from InfluxDB · transactional figures scoped to selected range · position &amp; total return are all-time
+        Data from InfluxDB · transactional figures scoped to selected range · position &amp; total return are all-time on tracked capital
       </footer>
     </div>
   );

@@ -40,6 +40,20 @@ export interface Summary {
   untracked: { disposals: number; quantity: number };
 }
 
+export interface CombinedSummary {
+  range: { moneyIn: number; fees: number; realizedPnl: number };
+  position: { currentValue: number; unrealizedPnl: number };
+  allTime: { moneyIn: number; realizedPnl: number; totalReturnPct: number };
+  untracked: { disposals: number };
+}
+
+export interface Overview {
+  start: string;
+  stop: string;
+  tickers: { ticker: string; prices: PricePoint[]; fills: Fill[]; summary: Summary }[];
+  combined: CombinedSummary;
+}
+
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -57,3 +71,6 @@ export const fetchTimeline = (ticker: string, start: string, stop: string) =>
 
 export const fetchSummary = (ticker: string, start: string, stop: string) =>
   getJson<Summary>(`/api/summary?ticker=${encodeURIComponent(ticker)}&start=${start}&stop=${stop}`);
+
+export const fetchOverview = (start: string, stop: string) =>
+  getJson<Overview>(`/api/overview?start=${start}&stop=${stop}`);

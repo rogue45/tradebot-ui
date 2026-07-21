@@ -233,3 +233,41 @@ export async function getSummary(ticker, startIso, stopIso) {
 function sum(arr) {
    return arr.reduce((a, b) => a + (Number(b) || 0), 0);
 }
+
+/**
+ * Overview across all tickers: each ticker's price series, fills, and summary, plus combined
+ * metrics (summed transactional + position figures and a portfolio-wide return).
+ */
+export async function getOverview(startIso, stopIso) {
+   const tickers = await getTickers();
+   const perTicker = await Promise.all(tickers.map(async (ticker) => {
+      const [prices, fills, summary] = await Promise.all([
+         getPriceSeries(ticker, startIso, stopIso),
+         getFills(ticker, startIso, stopIso),
+         getSummary(ticker, startIso, stopIso),
+      ]);
+      return { ticker, prices, fills, summary };
+   }));
+
+   const combined = perTicker.reduce((acc, t) => {
+      acc.range.moneyIn += t.summary.range.moneyIn;
+      acc.range.fees += t.summary.range.fees;
+      acc.range.realizedPnl += t.summary.range.realizedPnl;
+      acc.position.currentValue += t.summary.position.currentValue;
+      acc.position.unrealizedPnl += t.summary.position.unrealizedPnl;
+      acc.allTime.moneyIn += t.summary.allTime.moneyIn;
+      acc.allTime.realizedPnl += t.summary.allTime.realizedPnl;
+      acc.untracked.disposals += t.summary.untracked.disposals;
+      return acc;
+   }, {
+      range: { moneyIn: 0, fees: 0, realizedPnl: 0 },
+      position: { currentValue: 0, unrealizedPnl: 0 },
+      allTime: { moneyIn: 0, realizedPnl: 0, totalReturnPct: 0 },
+      untracked: { disposals: 0 },
+   });
+   combined.allTime.totalReturnPct = combined.allTime.moneyIn > 0
+      ? ((combined.allTime.realizedPnl + combined.position.unrealizedPnl) / combined.allTime.moneyIn) * 100
+      : 0;
+
+   return { start: startIso, stop: stopIso, tickers: perTicker, combined };
+}
