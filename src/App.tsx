@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchOverview, type Overview } from './api';
 import TimelineChart from './components/TimelineChart';
 import GlobalChart from './components/GlobalChart';
+import TradesTable from './components/TradesTable';
 import { TickerSummaryCards, CombinedSummaryCards } from './components/SummaryCards';
 
 const RANGE_PRESETS = [
@@ -43,6 +44,9 @@ export default function App() {
   };
 
   const selectedEntry = selected && overview ? overview.tickers.find(t => t.ticker === selected) : null;
+  const tableFills = selectedEntry
+    ? selectedEntry.fills
+    : (overview ? overview.tickers.flatMap(t => t.fills) : []);
 
   return (
     <div className="app">
@@ -109,6 +113,16 @@ export default function App() {
           </>
         ))}
       </div>
+
+      {overview && !loading && (
+        <div className="table-panel">
+          <div className="chart-heading">
+            <span>{selectedEntry ? `${selectedEntry.ticker} trades` : 'All trades'}</span>
+            <span className="muted">{tableFills.length} total</span>
+          </div>
+          <TradesTable fills={tableFills} />
+        </div>
+      )}
 
       <footer className="footer">
         Data from InfluxDB · transactional figures scoped to selected range · position &amp; total return are all-time on tracked capital
