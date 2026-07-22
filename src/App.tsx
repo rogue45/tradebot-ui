@@ -3,6 +3,7 @@ import { fetchOverview, type Overview } from './api';
 import TimelineChart from './components/TimelineChart';
 import GlobalChart from './components/GlobalChart';
 import TradesTable from './components/TradesTable';
+import HoldingsBreakdown from './components/HoldingsBreakdown';
 import { TickerSummaryCards, CombinedSummaryCards } from './components/SummaryCards';
 
 const RANGE_PRESETS = [
@@ -52,14 +53,26 @@ export default function App() {
     <div className="app">
       <header className="header">
         <h1>Tradebot</h1>
-        <div className="range-tabs">
-          {RANGE_PRESETS.map(p => (
-            <button key={p.days} className={p.days === rangeDays ? 'active' : ''} onClick={() => setRangeDays(p.days)}>
-              {p.label}
-            </button>
-          ))}
-        </div>
       </header>
+
+      {overview && (
+        <HoldingsBreakdown
+          holdings={overview.tickers.map(t => ({
+            ticker: t.ticker,
+            color: colorFor(t.ticker),
+            value: t.summary.position.currentValue,
+            quantity: t.summary.position.openQuantity,
+          }))}
+        />
+      )}
+
+      <div className="range-tabs range-row">
+        {RANGE_PRESETS.map(p => (
+          <button key={p.days} className={p.days === rangeDays ? 'active' : ''} onClick={() => setRangeDays(p.days)}>
+            {p.label}
+          </button>
+        ))}
+      </div>
 
       {error && <div className="error">Error: {error}</div>}
 

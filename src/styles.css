@@ -83,6 +83,47 @@ select {
 .range-tabs button:hover { color: var(--text); }
 .range-tabs button.active { background: var(--accent); color: #0b1020; font-weight: 600; }
 
+.holdings {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.holdings-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.holdings-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.holdings-total { font-size: 22px; font-weight: 700; }
+
+.holdings-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+.holdings-seg { min-width: 3px; }
+
+.holdings-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+.holding-item { display: inline-flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.holding-ticker { font-weight: 600; }
+.holding-value { color: var(--text); }
+.holding-pct { color: var(--accent); font-variant-numeric: tabular-nums; }
+.holding-qty { color: var(--muted); font-size: 12px; }
+.holdings-empty { color: var(--muted); font-size: 13px; }
+
+.range-row { margin-bottom: 16px; }
+
 .legend-filter {
   display: flex;
   flex-wrap: wrap;
