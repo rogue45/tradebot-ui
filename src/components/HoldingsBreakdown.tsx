@@ -5,6 +5,7 @@ export interface Holding {
   color: string;
   value: number;
   quantity: number;
+  isCash?: boolean;
 }
 
 interface Props {
@@ -43,7 +44,7 @@ export default function HoldingsBreakdown({ holdings }: Props) {
                 <span className="holding-ticker">{h.ticker}</span>
                 <span className="holding-value">{usd(h.value)}</span>
                 <span className="holding-pct">{((h.value / total) * 100).toFixed(0)}%</span>
-                <span className="holding-qty">{qty(h.quantity)}</span>
+                {!h.isCash && <span className="holding-qty">{qty(h.quantity)}</span>}
               </div>
             ))}
           </div>

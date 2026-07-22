@@ -52,6 +52,7 @@ export interface Overview {
   stop: string;
   tickers: { ticker: string; prices: PricePoint[]; fills: Fill[]; summary: Summary }[];
   combined: CombinedSummary;
+  cashUsd: number;
 }
 
 async function getJson<T>(url: string): Promise<T> {

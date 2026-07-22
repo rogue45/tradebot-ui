@@ -57,12 +57,15 @@ export default function App() {
 
       {overview && (
         <HoldingsBreakdown
-          holdings={overview.tickers.map(t => ({
-            ticker: t.ticker,
-            color: colorFor(t.ticker),
-            value: t.summary.position.currentValue,
-            quantity: t.summary.position.openQuantity,
-          }))}
+          holdings={[
+            ...overview.tickers.map(t => ({
+              ticker: t.ticker,
+              color: colorFor(t.ticker),
+              value: t.summary.position.currentValue,
+              quantity: t.summary.position.openQuantity,
+            })),
+            { ticker: 'Cash (USD)', color: '#35c47a', value: overview.cashUsd, quantity: overview.cashUsd, isCash: true },
+          ]}
         />
       )}
 

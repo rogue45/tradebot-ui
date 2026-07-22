@@ -17,6 +17,7 @@ const TRADE_BUCKET = process.env.INFLUX_TRADE_BUCKET || 'trade_history';
 const PRICE_MEASUREMENT = process.env.INFLUX_PRICE_MEASUREMENT || 'spot_price';
 const FILL_MEASUREMENT = process.env.INFLUX_FILL_MEASUREMENT || 'trade_fill';
 const DECISION_MEASUREMENT = process.env.INFLUX_DECISION_MEASUREMENT || 'trade_decision';
+const HOLDINGS_MEASUREMENT = process.env.INFLUX_HOLDINGS_MEASUREMENT || 'holdings';
 // Optional ISO date (e.g. "2026-07-19"). Trades before this are ignored everywhere - a clean
 // "tracking starts here" line so pre-bot holdings with unreliable cost basis don't pollute P&L.
 const TRACKING_START = process.env.INFLUX_TRACKING_START || null;
@@ -235,11 +236,26 @@ function sum(arr) {
 }
 
 /**
+ * Latest current cash balance (USD) from the bot's holdings snapshot. Not range/cutoff-scoped:
+ * this is "right now". Returns 0 if the bot hasn't published a snapshot yet.
+ */
+export async function getCashUsd() {
+   const flux = `from(bucket: "${TRADE_BUCKET}")
+  |> range(start: -2d)
+  |> filter(fn: (r) => r._measurement == "${HOLDINGS_MEASUREMENT}")
+  |> filter(fn: (r) => r._field == "quantity")
+  |> filter(fn: (r) => r.asset == "USD")
+  |> last()`;
+   const rows = await query(flux);
+   return rows.length ? Number(rows[0]._value) : 0;
+}
+
+/**
  * Overview across all tickers: each ticker's price series, fills, and summary, plus combined
  * metrics (summed transactional + position figures and a portfolio-wide return).
  */
 export async function getOverview(startIso, stopIso) {
-   const tickers = await getTickers();
+   const [tickers, cashUsd] = await Promise.all([getTickers(), getCashUsd()]);
    const perTicker = await Promise.all(tickers.map(async (ticker) => {
       const [prices, fills, summary] = await Promise.all([
          getPriceSeries(ticker, startIso, stopIso),
@@ -269,5 +285,5 @@ export async function getOverview(startIso, stopIso) {
       ? ((combined.allTime.realizedPnl + combined.position.unrealizedPnl) / combined.allTime.moneyIn) * 100
       : 0;
 
-   return { start: startIso, stop: stopIso, tickers: perTicker, combined };
+   return { start: startIso, stop: stopIso, tickers: perTicker, combined, cashUsd };
 }
