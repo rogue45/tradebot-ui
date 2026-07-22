@@ -296,6 +296,73 @@ select {
   font-size: 13px;
 }
 
+.badge.neutral { background: var(--panel-2); color: var(--muted); }
+
+/* Signals panel */
+.signals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.signal-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.signal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.signal-ticker { font-weight: 600; font-size: 14px; }
+.signal-sub { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+.signal-blocked { color: var(--neg); }
+.signal-votes { display: flex; flex-direction: column; gap: 5px; }
+.signal-vote { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.signal-vote .vote-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex: none; }
+.signal-vote.fired { color: var(--text); }
+.signal-vote.fired .vote-dot { background: var(--pos); }
+.signal-vote.gate .vote-dot { background: var(--accent); }
+
+/* Settings / config editor */
+.settings { margin-top: 16px; }
+.settings-toggle {
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.settings-toggle:hover { color: var(--text); }
+.settings-body {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 8px;
+}
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.settings-field { display: flex; flex-direction: column; gap: 5px; }
+.settings-label { font-size: 12px; color: var(--muted); }
+.settings-field input {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.settings-hint { font-size: 11px; color: var(--muted); }
+.settings-actions { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+.settings-save {
+  background: var(--accent);
+  color: #0b1020;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.settings-save:disabled { opacity: 0.6; cursor: default; }
+.settings-ok { color: var(--pos); font-size: 13px; }
+.settings-err { color: var(--neg); font-size: 13px; }
+.settings-note { font-size: 11px; color: var(--muted); margin-top: 10px; }
+
 .footer {
   margin-top: 16px;
   font-size: 11px;

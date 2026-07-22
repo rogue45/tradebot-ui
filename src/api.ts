@@ -59,8 +59,46 @@ export interface Overview {
 // public/config.js -> window.__API_BASE__ (empty string = same-origin, used in dev via the Vite proxy).
 const API_BASE: string = ((window as unknown as { __API_BASE__?: string }).__API_BASE__ ?? '').replace(/\/$/, '');
 
+export interface EditableConfig {
+  trade_cooldown_minutes: number;
+  trade_allocation_usd: number;
+  buy_confidence_threshold: number;
+  target_profit_pct: number;
+}
+
+export interface SignalVote {
+  name: string;
+  vote: number;
+  detail: string;
+}
+
+export interface SignalSnapshot {
+  ticker: string;
+  currentPrice: number;
+  netScore: number;
+  confidence: number;
+  threshold: number;
+  trendGateBlocked: boolean;
+  isCandidate: boolean;
+  votes: SignalVote[];
+  time: number;
+}
+
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+async function sendJson<T>(url: string, method: string, payload: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${url}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed: ${res.status}`);
@@ -79,3 +117,11 @@ export const fetchSummary = (ticker: string, start: string, stop: string) =>
 
 export const fetchOverview = (start: string, stop: string) =>
   getJson<Overview>(`/api/overview?start=${start}&stop=${stop}`);
+
+export const fetchConfig = () => getJson<EditableConfig>('/api/config');
+
+export const updateConfig = (patch: Partial<EditableConfig>) =>
+  sendJson<{ applied: Partial<EditableConfig>; persisted: boolean }>('/api/config', 'PATCH', patch);
+
+export const fetchSignals = () =>
+  getJson<{ signals: Record<string, SignalSnapshot> }>('/api/signals').then(r => r.signals);

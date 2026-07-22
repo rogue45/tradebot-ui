@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { fetchOverview, type Overview } from './api';
+import { fetchOverview, fetchSignals, type Overview, type SignalSnapshot } from './api';
 import TimelineChart from './components/TimelineChart';
 import GlobalChart from './components/GlobalChart';
 import TradesTable from './components/TradesTable';
 import HoldingsBreakdown from './components/HoldingsBreakdown';
+import SignalsPanel from './components/SignalsPanel';
+import ConfigEditor from './components/ConfigEditor';
 import { TickerSummaryCards, CombinedSummaryCards } from './components/SummaryCards';
 
 const RANGE_PRESETS = [
@@ -25,6 +27,7 @@ function rangeFor(days: number) {
 export default function App() {
   const [rangeDays, setRangeDays] = useState(7);
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [signals, setSignals] = useState<Record<string, SignalSnapshot>>({});
   const [selected, setSelected] = useState<string | null>(null); // null = All
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +41,14 @@ export default function App() {
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [rangeDays]);
+
+  // Latest signal snapshots (live, range-independent) — refresh on mount and every 60s.
+  useEffect(() => {
+    const load = () => fetchSignals().then(setSignals).catch(() => {});
+    load();
+    const id = setInterval(load, 60000);
+    return () => clearInterval(id);
+  }, []);
 
   const colorFor = (ticker: string) => {
     const idx = overview ? overview.tickers.findIndex(t => t.ticker === ticker) : 0;
@@ -133,12 +144,30 @@ export default function App() {
       {overview && !loading && (
         <div className="table-panel">
           <div className="chart-heading">
+            <span>Latest signals</span>
+            <span className="muted">last bot cycle</span>
+          </div>
+          <SignalsPanel
+            snapshots={
+              (selected ? [signals[selected]] : Object.values(signals))
+                .filter(Boolean)
+                .sort((a, b) => a.ticker.localeCompare(b.ticker))
+            }
+          />
+        </div>
+      )}
+
+      {overview && !loading && (
+        <div className="table-panel">
+          <div className="chart-heading">
             <span>{selectedEntry ? `${selectedEntry.ticker} trades` : 'All trades'}</span>
             <span className="muted">{tableFills.length} total</span>
           </div>
           <TradesTable fills={tableFills} />
         </div>
       )}
+
+      <ConfigEditor />
 
       <footer className="footer">
         Data from InfluxDB · transactional figures scoped to selected range · position &amp; total return are all-time on tracked capital
