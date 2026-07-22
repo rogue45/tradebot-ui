@@ -1,29 +1,28 @@
 # tradebot-ui
 
-A lightweight dashboard for the [quant-trader](../quant-trader) bot. Reads the same InfluxDB
-`market_data` bucket the bot writes to and visualizes the trading record: a price timeline with
-buy/sell markers, per-ticker filtering, and summary metrics (money in, fees, realized P&L,
-current holdings value, total return %).
+A lightweight **static** dashboard for the [quant-trader](../quant-trader) bot. It renders the
+trading record — a price timeline with buy/sell markers, per-ticker filtering, a portfolio
+holdings breakdown (incl. cash), a trades table, and summary metrics.
 
 ## Architecture
 
-A browser can't safely query InfluxDB directly (the token would be exposed), so this is a small
-Express backend + a Vite/React frontend, shipped as a single container:
+This project is **pure frontend**. All data access lives in the bot: the `quant-trader` process
+serves the read-only REST API (`/api/tickers`, `/api/overview`, `/api/timeline`, `/api/summary`)
+with CORS enabled, holding the `INFLUX_DB_TOKEN` and querying InfluxDB. This container just serves
+the built React app via nginx and calls that API cross-origin.
 
-- **`server/`** — Express holds `INFLUX_DB_TOKEN`, queries InfluxDB (read-only), exposes JSON at
-  `/api/tickers`, `/api/timeline`, `/api/summary`. In production it also serves the built frontend.
-- **`src/`** — React SPA (Recharts). In dev, Vite serves it and proxies `/api` to the backend.
-
-Data sources (all from InfluxDB): `spot_price` from the `market_data` bucket (price line),
-`trade_fill` (markers, fees, realized P&L) and `trade_decision` (Gemini's reason, shown on
-marker hover, joined by `order_id`) from the permanent `trade_history` bucket.
+- **`src/`** — React SPA (Recharts). Fetches from `window.__API_BASE__` (the bot's API).
+- **`public/config.js`** — sets `window.__API_BASE__`. Overwritten at container start from the
+  `API_BASE_URL` env var, so one static image can point at any backend.
+- No Node at runtime — nginx serves static files only.
 
 ## Local development
 
+Run the bot's API (`quant-trader`, `node tradebot.js` or just its API) on :8473, then:
+
 ```bash
 npm install
-cp .env.example .env      # fill in INFLUX_DB_TOKEN
-npm run dev               # Vite on :5173, API on :8473
+npm run dev     # Vite on :5173, proxies /api -> http://localhost:8473 (VITE_API_TARGET to override)
 ```
 
 Open http://localhost:5173.
@@ -31,37 +30,35 @@ Open http://localhost:5173.
 ## Build & deploy
 
 ```bash
-./build-push.sh           # builds linux/amd64, version-tags, pushes to the registry
+./build-push.sh   # builds linux/amd64 (nginx static image), version-tags, pushes to the registry
 ```
 
-Run the container with the InfluxDB read token in the environment:
+Run the container, pointing it at the bot's API:
 
 ```yaml
 tradebot-ui:
   image: 192.168.1.53:5000/tradebot-ui:latest
   environment:
-    - INFLUX_URL=http://192.168.1.53:8086
-    - INFLUX_DB_TOKEN=${INFLUX_DB_TOKEN}
-    - INFLUX_ORG=deremworks
-    - INFLUX_PRICE_BUCKET=market_data
-    - INFLUX_TRADE_BUCKET=trade_history
-    # Optional: ignore trades before this date so pre-bot holdings with unreliable
-    # cost basis don't pollute P&L. Omit to include all history.
-    - INFLUX_TRACKING_START=2026-07-19
+    # Base URL of the bot's dashboard API (served by quant-trader). Blank = same-origin.
+    - API_BASE_URL=http://192.168.1.53:8473
   ports:
-    - "8473:8473"
+    - "8080:80"
   restart: unless-stopped
 ```
+
+The InfluxDB token and all query logic now live in the bot, not here — this container needs no
+database credentials.
 
 ## Metric definitions
 
 - **Money In / Fees / Realized P&L** — scoped to the selected date range.
-- **Current Holdings** — open position quantity (all-time, FIFO) × latest price, a "right now" value.
-- **Total Return %** — all-time: `(realized P&L + unrealized on open position) / all-time money in`, computed over tracked capital only.
+- **Current Holdings** — open position quantity × latest price (plus USD cash from the bot's
+  holdings snapshot), a "right now" value.
+- **Total Return %** — all-time: `(realized P&L + unrealized) / all-time money in`, tracked capital only.
 
-Realized P&L is computed here via FIFO over the fill history rather than trusting the reconciler's
-stored value, so a sell that disposes of more than the tracked lots (a pre-tracking or transferred-in
-holding) is booked as an **untracked disposal** and excluded from P&L instead of showing phantom
-profit/loss. `INFLUX_TRACKING_START` sets a hard floor on which fills count at all.
+Realized P&L is walked FIFO server-side (in the bot's API), so a sell disposing of more than the
+tracked lots is booked as an **untracked disposal** and excluded from P&L rather than showing
+phantom profit/loss. The bot's `dashboard_api.tracking_start` config sets a hard floor on which
+fills count at all.
 
 Note: this is a monitoring view, not a tax document — for taxes use Coinbase's own reports.

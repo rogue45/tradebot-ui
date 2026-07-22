@@ -55,8 +55,12 @@ export interface Overview {
   cashUsd: number;
 }
 
+// Base URL of the backend API (served by the tradebot bot process). Injected at runtime via
+// public/config.js -> window.__API_BASE__ (empty string = same-origin, used in dev via the Vite proxy).
+const API_BASE: string = ((window as unknown as { __API_BASE__?: string }).__API_BASE__ ?? '').replace(/\/$/, '');
+
 async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const res = await fetch(`${API_BASE}${url}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed: ${res.status}`);
