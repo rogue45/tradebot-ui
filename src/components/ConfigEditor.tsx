@@ -4,8 +4,9 @@ import { fetchConfig, updateConfig, type EditableConfig } from '../api';
 const FIELDS: { key: keyof EditableConfig; label: string; step: number; hint: string }[] = [
   { key: 'trade_allocation_usd', label: 'Trade allocation (USD)', step: 1, hint: 'USD spent per buy' },
   { key: 'trade_cooldown_minutes', label: 'Buy cooldown (min)', step: 1, hint: 'Min minutes between buys' },
-  { key: 'buy_confidence_threshold', label: 'Buy confidence threshold', step: 1, hint: 'Signals that must agree (1–5)' },
-  { key: 'target_profit_pct', label: 'Target profit (%)', step: 0.1, hint: 'Net profit target per lot' },
+  { key: 'bounce_confirm_pct', label: 'Bounce confirmation (%)', step: 0.1, hint: '0 = buy on the trough candle; >0 = wait for price to bounce this far off the floor first' },
+  { key: 'target_profit_pct', label: 'Target profit (%)', step: 0.1, hint: 'Fee-aware profit floor per lot - never sells below this' },
+  { key: 'trailing_stop_pct', label: 'Trailing stop (%)', step: 0.1, hint: 'Once past target, sell on this much pullback from the lot\'s peak (0 = no trailing net)' },
 ];
 
 export default function ConfigEditor() {

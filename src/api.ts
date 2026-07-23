@@ -62,8 +62,9 @@ const API_BASE: string = ((window as unknown as { __API_BASE__?: string }).__API
 export interface EditableConfig {
   trade_cooldown_minutes: number;
   trade_allocation_usd: number;
-  buy_confidence_threshold: number;
+  bounce_confirm_pct: number;
   target_profit_pct: number;
+  trailing_stop_pct: number;
 }
 
 export interface SignalVote {
@@ -72,17 +73,46 @@ export interface SignalVote {
   detail: string;
 }
 
+// Two independent buy archetypes (see signalEngine.js): either one firing is a buy candidate.
+export interface DipReversalEval {
+  isCandidate: boolean;
+  netScore: number;
+  confidence: number;
+  dipConfirmed: boolean;
+  reversalConfirmed: boolean;
+  requireReversal?: boolean;
+  reversalGateBlocked?: boolean;
+  trendGateBlocked: boolean;
+  floorPrice: number | null;
+  floorBroken: boolean;
+  bounceConfirmPct: number;
+  bounceConfirmed: boolean;
+  votes: SignalVote[];
+}
+
+export interface BreakoutEval {
+  isCandidate: boolean;
+  netScore: number;
+  confidence: number;
+  levelConfirmed: boolean;
+  momentumConfirmed: boolean;
+  requireMomentum?: boolean;
+  momentumGateBlocked?: boolean;
+  trendGateBlocked: boolean;
+  breakoutLevel: number | null;
+  breakoutFailed: boolean;
+  breakoutConfirmPct: number;
+  breakoutConfirmed: boolean;
+  votes: SignalVote[];
+}
+
 export interface SignalSnapshot {
   ticker: string;
   currentPrice: number;
-  netScore: number;
   confidence: number;
-  threshold: number;
-  trendGateBlocked: boolean;
-  reversalGateBlocked?: boolean;
-  requireReversal?: boolean;
   isCandidate: boolean;
-  votes: SignalVote[];
+  dipReversal: DipReversalEval;
+  breakout: BreakoutEval;
   time: number;
 }
 

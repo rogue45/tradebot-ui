@@ -324,6 +324,17 @@ select {
 .signal-gate.open { color: var(--muted); }
 .signal-gate.blocked { color: var(--neg); font-weight: 600; }
 
+/* Two independent archetype sub-cards (dip-reversal, breakout) within a ticker's signal-card */
+.signal-archetype {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.signal-archetype-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.signal-archetype-title { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+
 /* Settings / config editor */
 .settings { margin-top: 16px; }
 .settings-toggle {
