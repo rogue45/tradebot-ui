@@ -10,10 +10,10 @@ import ConfigEditor from './components/ConfigEditor';
 import { TickerSummaryCards, CombinedSummaryCards } from './components/SummaryCards';
 
 const RANGE_PRESETS = [
-  { label: 'This Week', days: 7 },
-  { label: 'This Month', days: 30 },
-  { label: '3 Months', days: 90 },
-  { label: 'This Year', days: 365 },
+  { label: 'Last 24 Hours', days: 1 },
+  { label: 'Last 3 Days', days: 3 },
+  { label: 'Last 7 Days', days: 7 },
+  { label: 'Last 30 Days', days: 30 },
 ];
 
 // Distinct line colors assigned per ticker (stable by sorted order).
@@ -26,7 +26,7 @@ function rangeFor(days: number) {
 }
 
 export default function App() {
-  const [rangeDays, setRangeDays] = useState(7);
+  const [rangeDays, setRangeDays] = useState(1);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [signals, setSignals] = useState<Record<string, SignalSnapshot>>({});
   const [selected, setSelected] = useState<string | null>(null); // null = All
