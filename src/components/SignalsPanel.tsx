@@ -10,7 +10,8 @@ const PRETTY: Record<string, string> = {
   bollinger_lower: 'Bollinger lower',
   sma_dip: 'SMA dip',
   macd_bull_cross: 'MACD bull cross',
-  volume_spike: 'Volume spike',
+  divergence_volume: 'Bullish divergence + vol',
+  reversal_candle: 'Reversal candle',
 };
 
 // Latest signal-engine output per ticker — the 5 confluence votes plus the trend-gate filter.
