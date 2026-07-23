@@ -20,43 +20,77 @@ const PRETTY: Record<string, string> = {
   ema_fast_cross: 'EMA fast/slow cross',
 };
 
-/** Renders one archetype's votes + gates. Shared layout for dip-reversal and breakout. */
-function ArchetypeCard({ title, evaluation, gates }: {
+/** One-line "what's currently missing" for an archetype that hasn't fired - the single most
+ * relevant blocker, in the order a reader would actually want to know about it. */
+function dipReversalStatus(dr: DipReversalEval): string {
+  if (dr.isCandidate) return 'confirmed';
+  if (dr.trendGateBlocked) return 'downtrend blocking buys';
+  if (!dr.dipConfirmed) return 'no dip yet';
+  if (dr.reversalGateBlocked) return 'no reversal evidence yet';
+  if (dr.floorBroken) return 'floor broken - invalidated';
+  if (!dr.bounceConfirmed) return 'awaiting bounce confirmation';
+  return 'waiting';
+}
+
+function breakoutStatus(bo: BreakoutEval): string {
+  if (bo.isCandidate) return 'confirmed';
+  if (bo.trendGateBlocked) return 'downtrend blocking buys';
+  if (!bo.levelConfirmed) return 'no breakout level broken yet';
+  if (bo.momentumGateBlocked) return 'no momentum evidence yet';
+  if (bo.breakoutFailed) return 'ceiling reclaimed - invalidated';
+  if (!bo.breakoutConfirmed) return 'awaiting confirmation bounce';
+  return 'waiting';
+}
+
+/** One archetype: a single always-visible status line, with the gate/vote breakdown ("what would
+ * flip it") tucked behind a native <details> disclosure so it stays out of the way until wanted.
+ * Each gate renders its own member signals nested directly beneath it (a signal can appear under
+ * more than one gate if it's ever shared - none currently are, each maps to exactly one gate). */
+function ArchetypeRow({ title, status, evaluation, gates }: {
   title: string;
+  status: string;
   evaluation: DipReversalEval | BreakoutEval;
-  gates: { label: string; blocked: boolean; title?: string }[];
+  gates: { label: string; blocked: boolean; title?: string; voteNames?: string[] }[];
 }) {
-  const votingSignals = evaluation.votes.filter(v => v.name !== 'trend_gate');
-  const firedCount = votingSignals.filter(v => v.vote > 0).length;
+  const voteByName = new Map(evaluation.votes.map(v => [v.name, v]));
   return (
-    <div className="signal-archetype">
-      <div className="signal-archetype-head">
-        <span className="signal-archetype-title">{title}</span>
-        <span className={`badge ${evaluation.isCandidate ? 'buy' : 'neutral'}`}>
-          {evaluation.isCandidate ? 'FIRED' : `${firedCount}/${votingSignals.length}`}
+    <details className="archetype-row">
+      <summary className="archetype-summary">
+        <span className="archetype-title">{title}</span>
+        <span className={`archetype-status ${evaluation.isCandidate ? 'fired' : ''}`}>
+          {evaluation.isCandidate ? 'FIRED' : status}
         </span>
-      </div>
-      <div className="signal-votes">
-        {votingSignals.map(v => (
-          <div key={v.name} className={`signal-vote ${v.vote > 0 ? 'fired' : ''}`} title={v.detail}>
-            <span className="vote-dot" />
-            {PRETTY[v.name] || v.name}
+      </summary>
+      <div className="archetype-body">
+        {gates.map(g => (
+          <div key={g.label} className="gate-group">
+            <div className={`signal-gate ${g.blocked ? 'blocked' : 'open'}`} title={g.title}>
+              {g.label} — {g.blocked ? 'BLOCKING' : 'open'}
+            </div>
+            {g.voteNames && (
+              <div className="signal-votes nested">
+                {g.voteNames.map(name => {
+                  const v = voteByName.get(name);
+                  if (!v) return null;
+                  return (
+                    <div key={name} className={`signal-vote ${v.vote > 0 ? 'fired' : ''}`} title={v.detail}>
+                      <span className="vote-dot" />
+                      {PRETTY[name] || name}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
       </div>
-      {gates.map(g => (
-        <div key={g.label} className={`signal-gate ${g.blocked ? 'blocked' : 'open'}`} title={g.title}>
-          {g.label} — {g.blocked ? 'BLOCKING' : 'open'}
-        </div>
-      ))}
-    </div>
+    </details>
   );
 }
 
 // Latest signal-engine output per ticker: two INDEPENDENT buy archetypes, either one firing is a
-// buy candidate (see signalEngine.js). Dip-reversal needs a stretched dip AND real reversal
-// evidence; breakout needs a broken range AND real momentum - each its own structured AND-of-ORs,
-// not a vote count, combined with OR at the top.
+// buy candidate (see signalEngine.js). Minimal by default - one status line per archetype - with
+// the full vote/gate breakdown collapsed behind a disclosure for anyone who wants "what would flip it".
 export default function SignalsPanel({ snapshots }: Props) {
   if (!snapshots.length) {
     return <div className="empty-table">No signal data yet (the bot populates this each cycle).</div>;
@@ -83,22 +117,24 @@ export default function SignalsPanel({ snapshots }: Props) {
             </div>
             <div className="signal-sub">confidence {(s.confidence * 100).toFixed(0)}% · {dateTime(s.time)}</div>
 
-            <ArchetypeCard
+            <ArchetypeRow
               title="Dip-reversal"
+              status={dipReversalStatus(dr)}
               evaluation={dr}
               gates={[
-                { label: 'Dip evidence (any of 3)', blocked: !dr.dipConfirmed, title: 'RSI oversold, Bollinger lower, or SMA dip' },
-                ...(dr.requireReversal ? [{ label: 'Reversal evidence (any of 3)', blocked: !!dr.reversalGateBlocked, title: 'MACD bull cross, divergence + volume, or reversal candle' }] : []),
+                { label: 'Dip evidence (any of 3)', blocked: !dr.dipConfirmed, title: 'RSI oversold, Bollinger lower, or SMA dip', voteNames: ['rsi_oversold', 'bollinger_lower', 'sma_dip'] },
+                ...(dr.requireReversal ? [{ label: 'Reversal evidence (any of 3)', blocked: !!dr.reversalGateBlocked, title: 'MACD bull cross, divergence + volume, or reversal candle', voteNames: ['macd_bull_cross', 'divergence_volume', 'reversal_candle'] }] : []),
                 { label: 'Trend gate', blocked: dr.trendGateBlocked, title: trendGateDetail },
                 { label: 'Floor gate', blocked: dr.floorBroken, title: floorTitle },
               ]}
             />
-            <ArchetypeCard
+            <ArchetypeRow
               title="Breakout"
+              status={breakoutStatus(bo)}
               evaluation={bo}
               gates={[
-                { label: 'Level evidence (any of 3)', blocked: !bo.levelConfirmed, title: 'Donchian breakout, upper Bollinger break, or SMA breakout' },
-                ...(bo.requireMomentum ? [{ label: 'Momentum evidence (any of 3)', blocked: !!bo.momentumGateBlocked, title: 'MACD bull cross above zero, volume breakout candle, or fast/slow EMA cross' }] : []),
+                { label: 'Level evidence (any of 3)', blocked: !bo.levelConfirmed, title: 'Donchian breakout, upper Bollinger break, or SMA breakout', voteNames: ['donchian_breakout', 'bollinger_upper_break', 'sma_breakout'] },
+                ...(bo.requireMomentum ? [{ label: 'Momentum evidence (any of 3)', blocked: !!bo.momentumGateBlocked, title: 'MACD bull cross above zero, volume breakout candle, or fast/slow EMA cross', voteNames: ['macd_bull_cross_above_zero', 'volume_breakout_candle', 'ema_fast_cross'] }] : []),
                 { label: 'Trend gate', blocked: bo.trendGateBlocked, title: trendGateDetail },
                 { label: 'Ceiling gate', blocked: bo.breakoutFailed, title: ceilingTitle },
               ]}

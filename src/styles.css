@@ -315,25 +315,53 @@ select {
 .signal-vote.fired { color: var(--text); }
 .signal-vote.fired .vote-dot { background: var(--pos); }
 
-.signal-gate {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-}
+.signal-gate { font-size: 11px; }
 .signal-gate.open { color: var(--muted); }
 .signal-gate.blocked { color: var(--neg); font-weight: 600; }
 
-/* Two independent archetype sub-cards (dip-reversal, breakout) within a ticker's signal-card */
-.signal-archetype {
+/* A gate and the signals that belong to it, nested directly beneath so "why is this blocked" and
+   "what would flip it" read as one unit instead of two lists you have to cross-reference. */
+.gate-group {
   margin-top: 10px;
-  padding: 10px 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.gate-group:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.signal-votes.nested { margin: 6px 0 0 14px; gap: 4px; }
+.signal-votes.nested .signal-vote { font-size: 11px; }
+
+/* Two independent archetype rows (dip-reversal, breakout) within a ticker's signal-card. Each is
+   a native <details> - one status line always visible, the vote/gate breakdown collapsed by
+   default so the panel stays scannable across many tickers. */
+.archetype-row {
+  margin-top: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
 }
-.signal-archetype-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.signal-archetype-title { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+.archetype-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.archetype-summary::-webkit-details-marker { display: none; }
+.archetype-summary::before {
+  content: '▸';
+  font-size: 10px;
+  color: var(--muted);
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+}
+.archetype-row[open] > .archetype-summary::before { transform: rotate(90deg); }
+.archetype-title { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); flex: none; }
+.archetype-status { font-size: 12px; color: var(--muted); text-align: right; }
+.archetype-status.fired { color: var(--pos); font-weight: 600; }
+.archetype-body { padding: 6px 12px 10px; }
 
 /* Settings / config editor */
 .settings { margin-top: 16px; }
