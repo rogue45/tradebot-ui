@@ -314,7 +314,15 @@ select {
 .signal-vote .vote-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex: none; }
 .signal-vote.fired { color: var(--text); }
 .signal-vote.fired .vote-dot { background: var(--pos); }
-.signal-vote.gate .vote-dot { background: var(--accent); }
+
+.signal-gate {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+}
+.signal-gate.open { color: var(--muted); }
+.signal-gate.blocked { color: var(--neg); font-weight: 600; }
 
 /* Settings / config editor */
 .settings { margin-top: 16px; }
