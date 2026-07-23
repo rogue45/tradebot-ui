@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { fetchOverview, fetchSignals, type Overview, type SignalSnapshot } from './api';
+import { fetchOverview, fetchSignals, fetchSignalHistory, type Overview, type SignalSnapshot, type SignalHistoryPoint } from './api';
 import TimelineChart from './components/TimelineChart';
 import GlobalChart from './components/GlobalChart';
+import SignalHistoryChart from './components/SignalHistoryChart';
 import TradesTable from './components/TradesTable';
 import HoldingsBreakdown from './components/HoldingsBreakdown';
 import SignalsPanel from './components/SignalsPanel';
@@ -29,6 +30,7 @@ export default function App() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [signals, setSignals] = useState<Record<string, SignalSnapshot>>({});
   const [selected, setSelected] = useState<string | null>(null); // null = All
+  const [signalHistory, setSignalHistory] = useState<SignalHistoryPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +51,14 @@ export default function App() {
     const id = setInterval(load, 60000);
     return () => clearInterval(id);
   }, []);
+
+  // Historical buy/sell signal on/off state for the selected ticker's chart - only meaningful for
+  // a single ticker (there's no "combined" signal state across tickers), so cleared when on "All".
+  useEffect(() => {
+    if (!selected) { setSignalHistory([]); return; }
+    const { start, stop } = rangeFor(rangeDays);
+    fetchSignalHistory(selected, start, stop).then(r => setSignalHistory(r.points)).catch(() => setSignalHistory([]));
+  }, [selected, rangeDays]);
 
   const colorFor = (ticker: string) => {
     const idx = overview ? overview.tickers.findIndex(t => t.ticker === ticker) : 0;
@@ -140,6 +150,19 @@ export default function App() {
           </>
         ))}
       </div>
+
+      {overview && !loading && selectedEntry && (
+        <div className="chart-panel">
+          <div className="chart-heading">
+            <span>{selectedEntry.ticker} signal history</span>
+            <span className="legend">
+              <span className="dot" style={{ background: '#f5c518' }} /> Buy signal on
+              <span className="dot" style={{ background: '#35c47a' }} /> Sell signal on
+            </span>
+          </div>
+          <SignalHistoryChart prices={selectedEntry.prices} signals={signalHistory} />
+        </div>
+      )}
 
       {overview && !loading && (
         <div className="table-panel">

@@ -116,6 +116,23 @@ export interface SignalSnapshot {
   time: number;
 }
 
+// Historical buy/sell on/off state (see influxClient.writeSignalSnapshot), not the same as
+// SignalSnapshot above - that's an in-memory cache of only the latest tick.
+export interface SignalHistoryPoint {
+  time: number;
+  buySignal: boolean;
+  dipReversalSignal: boolean;
+  breakoutSignal: boolean;
+  sellSignal: boolean;
+}
+
+export interface SignalHistory {
+  ticker: string;
+  start: string;
+  stop: string;
+  points: SignalHistoryPoint[];
+}
+
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`);
   if (!res.ok) {
@@ -157,3 +174,6 @@ export const updateConfig = (patch: Partial<EditableConfig>) =>
 
 export const fetchSignals = () =>
   getJson<{ signals: Record<string, SignalSnapshot> }>('/api/signals').then(r => r.signals);
+
+export const fetchSignalHistory = (ticker: string, start: string, stop: string) =>
+  getJson<SignalHistory>(`/api/signal-history?ticker=${encodeURIComponent(ticker)}&start=${start}&stop=${stop}`);
