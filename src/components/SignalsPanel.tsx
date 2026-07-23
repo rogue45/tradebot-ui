@@ -47,6 +47,11 @@ export default function SignalsPanel({ snapshots }: Props) {
             <div className={`signal-gate ${s.trendGateBlocked ? 'blocked' : 'open'}`} title={gate?.detail}>
               Trend gate (filter, not scored) — {s.trendGateBlocked ? 'BLOCKING buys' : 'allowing buys'}
             </div>
+            {s.requireReversal && (
+              <div className={`signal-gate ${s.reversalGateBlocked ? 'blocked' : 'open'}`} title="Requires divergence or a reversal candle before buying">
+                Reversal gate (filter, not scored) — {s.reversalGateBlocked ? 'BLOCKING (no reversal signal)' : 'confirmed'}
+              </div>
+            )}
           </div>
         );
       })}

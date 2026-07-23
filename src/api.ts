@@ -79,6 +79,8 @@ export interface SignalSnapshot {
   confidence: number;
   threshold: number;
   trendGateBlocked: boolean;
+  reversalGateBlocked?: boolean;
+  requireReversal?: boolean;
   isCandidate: boolean;
   votes: SignalVote[];
   time: number;
